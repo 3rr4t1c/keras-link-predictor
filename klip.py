@@ -1,6 +1,6 @@
 # Keras Link Predictor (KLIP) by Enrico Verdolotti
 # Link Prediction Home Made with Neural Networks :)
-
+from multiclass import to_multiclass
 from os.path import join
 import numpy as np
 import random
@@ -15,9 +15,10 @@ from keras import layers
 class KerasLinkPredictor:
     
     # Inizializza il modello con dimensione input ed embeddings
-    def __init__(self, input_dim=10, embeddings_dim=50):
+    def __init__(self, input_dim=10, embeddings_dim=50, multiclass=True):
         self.input_dim = input_dim
         self.embeddings_dim = embeddings_dim
+        self.multiclass = multiclass
 
 
     # Carica il dataset nelle strutture necessarie
@@ -109,7 +110,10 @@ class KerasLinkPredictor:
         concat = layers.concatenate([output_sbj, output_obj])
         hidden = layers.Dense(128, activation='relu')(concat)
         hidden = layers.Dense(128, activation='relu')(hidden)
-        output = layers.Dense(self.output_dim, activation='softmax')(hidden)
+        if self.multiclass:
+            output = layers.Dense(self.output_dim, activation='sigmoid')(hidden)
+        else:
+            output = layers.Dense(self.output_dim, activation='softmax')(hidden)
         # Model
         self.model = keras.Model(inputs=[input_sbj, input_obj], outputs=[output])
         self.model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'] )
@@ -123,9 +127,21 @@ class KerasLinkPredictor:
         self.gen_neg_samples(self.train_input1, self.train_output, self.train_input2)
         self.gen_neg_samples(self.valid_input1, self.valid_output, self.valid_input2)
         # Codifica input ed output in matrici utilizzabili da Keras
-        self.data_encode('train')
-        self.data_encode('valid')
-        self.data_encode('test')
+        if self.multiclass:
+            # Train
+            a, b, c = to_multiclass(self.train_input1, self.train_input2, self.train_output, self.entity_map, self.relation_map)
+            self.train_input1, self.train_input2, self.train_output = a, b, c
+            # Validation
+            a, b, c = to_multiclass(self.valid_input1, self.valid_input2, self.valid_output, self.entity_map, self.relation_map)
+            self.valid_input1, self.valid_input2, self.valid_output = a, b, c
+            # Test
+            a, b, c = to_multiclass(self.test_input1, self.test_input2, self.test_output, self.entity_map, self.relation_map)
+            self.test_input1, self.test_input2, self.test_output = a, b, c
+        else:            
+            self.data_encode('train')
+            self.data_encode('valid')
+            self.data_encode('test')
+
         # Crea il modello in keras
         self.build_model()
         # Addestramento
