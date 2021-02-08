@@ -38,7 +38,7 @@ class KerasLinkPredictor:
         self.test_output = list()
 
         for f in required_files:
-            with open(join(dataset_folder, f), 'r') as tsv_file:
+            with open(join(dataset_folder, f), 'r', encoding='utf8') as tsv_file:
                 reader = csv.reader(tsv_file, delimiter='\t')
                 for line in reader:
                     h, r, t = line
@@ -128,19 +128,19 @@ class KerasLinkPredictor:
         
         # Model
         self.model = keras.Model(inputs=[input_sbj, input_obj], outputs=[output])
-        self.model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'] )
+        self.model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
         self.model.summary()
 
 
     # Addestra il modello e valuta le prestazioni 
-    def train(self, dataset_folder, input_dim=16, embeddings_dim=32, batch_size=64, epochs=20):
+    def train(self, dataset_folder, neg_samples_frac=0.8, input_dim=16, embeddings_dim=32, batch_size=64, epochs=20):
 
         # Caricamento dataset da disco # TODO: prevedere anche un passaggio per parametro?
         self.load_dataset(dataset_folder, input_dim)
         
         # Genera esempi negativi (not_related) per test e validation set
-        self.gen_neg_samples(self.train_input1, self.train_output, self.train_input2)
-        self.gen_neg_samples(self.valid_input1, self.valid_output, self.valid_input2)
+        self.gen_neg_samples(self.train_input1, self.train_output, self.train_input2, neg_samples_frac)
+        self.gen_neg_samples(self.valid_input1, self.valid_output, self.valid_input2, neg_samples_frac)
         
         # Codifica input ed output in matrici utilizzabili da Keras        
         a, b, c = self.dataset_to_numpy(self.train_input1, self.train_input2, self.train_output)
@@ -228,7 +228,7 @@ class KerasLinkPredictor:
     # Carica un file tsv da disco come lista di tuple (records)
     def load_tsv(self, file_path, target):
 
-        with open(file_path, 'r') as tsv_file:
+        with open(file_path, 'r', encoding='utf8') as tsv_file:
             rd = csv.reader(tsv_file, delimiter='\t')
             for line in rd:                
                 target.append(tuple(line))
@@ -290,16 +290,16 @@ class KerasLinkPredictor:
 if __name__ == '__main__':
 
     klip = KerasLinkPredictor()    
-    klip.train('dataset')
-    klip.save('klip_save_test')
-    klip.load('klip_save_test.klip')
-    klip.evaluate('dataset/test.tsv')
+    klip.train('datasets/LectorKG/500kSplit')
+    #klip.save('klip_save_test')
+    #klip.load('klip_save_test.klip')
+    #klip.evaluate('datasets/test.tsv')
 
-    p_map = klip.predict('dataset/test_instances.tsv')    
+    #p_map = klip.predict('dataset/test_instances.tsv')    
     
-    for k, v in list(p_map.items())[:100]:
-        max_rel = max(v, key=v.get)
-        print(k, '->', max_rel, 'Score:', v[max_rel])
+    # for k, v in list(p_map.items())[:100]:
+    #     max_rel = max(v, key=v.get)
+    #     print(k, '->', max_rel, 'Score:', v[max_rel])
 
     
     
